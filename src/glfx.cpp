@@ -30,6 +30,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. */
 #include <cstdio>
 #include <cassert>
 
+
+#include <iostream>
+
 #ifndef _MSC_VER
 typedef int errno_t;
 #include <errno.h>
@@ -120,29 +123,6 @@ unsigned Program::CompileAndLink(string& log) const
     
     if(m_separable)
         glProgramParameteri(programId, GL_PROGRAM_SEPARABLE, GL_TRUE);
-
-    glLinkProgram(programId);
-
-    for(vector<GLuint>::const_iterator it=shaders.begin();it!=shaders.end();++it) {
-        glDetachShader(programId, *it);
-        glDeleteShader(*it);
-    }
-    
-    GLint tmp;
-    glGetProgramiv(programId, GL_LINK_STATUS, &tmp);
-    res&=tmp;
-    
-    sLog<<"Status: Link "<<(res ? "successful" : "failed")<<endl;
-    
-    glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &tmp);
-    char* infoLog = new char[tmp];
-    glGetProgramInfoLog(programId, tmp, &tmp, infoLog);
-    sLog<<"Linkage details:"<<endl<<infoLog<<endl;
-    delete[] infoLog;
-    
-    log=sLog.str();
-    if(!res)
-        throw "Errors in shader compilation";
 
     return programId;
 }
@@ -521,12 +501,16 @@ const char* GLFX_APIENTRY glfxGetProgramName(int effect, int program)
     return tmpList[program].c_str();
 }
 
-int GLFX_APIENTRY glfxCompileProgram(int effect, const char* program)
+int GLFX_APIENTRY glfxPrepareProgram(int effect, const char* program)
 {
-    if((size_t)effect>=gEffects.size() || gEffects[effect]==NULL || program==NULL || !gEffects[effect]->Active())
-        return -1;
-
     string slog;
+    if((size_t)effect>=gEffects.size() || gEffects[effect]==NULL || program==NULL || !gEffects[effect]->Active())
+    {
+        slog+="Effect does not exist!";
+        std::cout << "--------" << slog << std::endl;
+        return -1;
+    }
+
     unsigned progid;
     try {
         progid=gEffects[effect]->BuildProgram(program, slog);
