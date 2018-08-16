@@ -56,7 +56,7 @@ public:
     };
 
     Program(const map<ShaderType, Shader>& shaders);
-    unsigned CompileAndLink(string& log) const;
+    unsigned CompileAndLink(string& log, bool link) const;
         
 private:
     int CompileShader(unsigned shader, const Shader& shaderSrc, ostringstream& sLog) const;
@@ -108,7 +108,7 @@ class Effect {
     
 public:
     ostringstream& Log();
-    unsigned BuildProgram(const string& prog, string& log) const;
+    unsigned BuildProgram(const string& prog, string& log, bool link) const;
     unsigned BuildProgram(const string& prog) const;
     unsigned CreateSampler(const string& sampler) const;
     const vector<string>& GetProgramList() const;

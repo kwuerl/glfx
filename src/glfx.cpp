@@ -99,7 +99,7 @@ Program::Program(const map<ShaderType,Shader>& shaders)
     m_separable=false;
 }
 
-unsigned Program::CompileAndLink(string& log) const
+unsigned Program::CompileAndLink(string& log, bool link) const
 {
     vector<GLuint> shaders;
     ostringstream sLog;
@@ -124,6 +124,51 @@ unsigned Program::CompileAndLink(string& log) const
     if(m_separable)
         glProgramParameteri(programId, GL_PROGRAM_SEPARABLE, GL_TRUE);
 
+    if(link)
+    {   
+        glLinkProgram(programId);
+     
+     
+        for(vector<GLuint>::const_iterator it=shaders.begin();it!=shaders.end();++it) {
+     
+            glDetachShader(programId, *it);
+     
+            glDeleteShader(*it);
+     
+        }
+     
+        
+     
+        GLint tmp;
+     
+        glGetProgramiv(programId, GL_LINK_STATUS, &tmp);
+     
+        res&=tmp;
+     
+        
+     
+        sLog<<"Status: Link "<<(res ? "successful" : "failed")<<endl;
+     
+        
+     
+        glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &tmp);
+     
+        char* infoLog = new char[tmp];
+     
+        glGetProgramInfoLog(programId, tmp, &tmp, infoLog);
+     
+        sLog<<"Linkage details:"<<endl<<infoLog<<endl;
+     
+        delete[] infoLog;
+     
+        
+     
+        log=sLog.str();
+     
+        if(!res)
+            throw "Errors in shader compilation";
+    }
+
     return programId;
 }
 
@@ -142,7 +187,8 @@ int Program::CompileShader( unsigned shader, const Shader& shaderSrc, ostringstr
 
     char* infoLog=new char[tmp];
     glGetShaderInfoLog(shader, tmp, &tmp, infoLog);
-    sLog<<"Compilation details for "<<shaderSrc.name<<" shader:"<<endl<<infoLog<<endl;
+    if(tmp > 0)
+        sLog<<"Compilation details for "<<shaderSrc.name<<" shader:"<<endl<<infoLog<<endl;
     delete[] infoLog;
 
     return res;
@@ -171,19 +217,19 @@ string& Effect::Dir()
     return m_dir;
 }
 
-unsigned Effect::BuildProgram(const string& prog, string& log) const
+unsigned Effect::BuildProgram(const string& prog, string& log, bool link) const
 {
     map<string,Program*>::const_iterator it=m_programs.find(prog);
     if(it==m_programs.end())
         throw "Program not found";
     
-    return it->second->CompileAndLink(log);
+    return it->second->CompileAndLink(log, link);
 }
 
 unsigned Effect::BuildProgram(const string& prog) const
 {
     string trash;
-    return BuildProgram(prog, trash);
+    return BuildProgram(prog, trash, true);
 }
 
 ostringstream& Effect::Log()
@@ -513,7 +559,39 @@ int GLFX_APIENTRY glfxPrepareProgram(int effect, const char* program)
 
     unsigned progid;
     try {
-        progid=gEffects[effect]->BuildProgram(program, slog);
+        progid=gEffects[effect]->BuildProgram(program, slog, false);
+    }
+    catch(const char* err) {
+        slog+=err;
+        progid=-1;
+    }
+    catch(const string& err) {
+        slog+=err;
+        progid=-1;
+    }
+    catch(...) {
+        slog+="Error during compilation";
+        progid=-1;
+    }
+
+    gEffects[effect]->Log()<<slog;
+
+    return progid;
+}
+
+int GLFX_APIENTRY glfxCompileProgram(int effect, const char* program)
+{
+    string slog;
+    if((size_t)effect>=gEffects.size() || gEffects[effect]==NULL || program==NULL || !gEffects[effect]->Active())
+    {
+        slog+="Effect does not exist!";
+        std::cout << "--------" << slog << std::endl;
+        return -1;
+    }
+
+    unsigned progid;
+    try {
+        progid=gEffects[effect]->BuildProgram(program, slog, true);
     }
     catch(const char* err) {
         slog+=err;
